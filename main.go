@@ -6,6 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"github.com/10minutemessage/cache"
 
 	"github.com/google/uuid"
 
@@ -14,8 +17,7 @@ import (
 	"github.com/go-chi/render"
 )
 
-// create map to store the messages
-var messages = make(map[string]string)
+var messages = cache.Cache{}
 
 type TextMessage struct {
 	Text string `json:"text"`
@@ -65,7 +67,8 @@ func encode(w http.ResponseWriter, r *http.Request) {
 	code := uuid.New().String()
 	// susbstitute the "-" with ""
 	code = strings.Replace(code, "-", "", -1)
-	messages[code] = textMessage.Text
+	messages.Set(code, textMessage.Text, 10*time.Minute)
+	//[code] = textMessage.Text
 
 	var responseMessage string
 	responseMessage = "decode/" + code
@@ -75,12 +78,19 @@ func encode(w http.ResponseWriter, r *http.Request) {
 
 func decode(w http.ResponseWriter, r *http.Request) {
 	code := chi.URLParam(r, "code")
-	text, ok := messages[code]
+
+	if code == "" {
+		http.Error(w, "Code is required", http.StatusBadRequest)
+		return
+	}
+
+	text, ok := messages.Get(code)
+
 	if !ok {
 		http.Error(w, "Code not found", http.StatusNotFound)
 		return
 	}
-	render.JSON(w, r, text)
+	render.PlainText(w, r, text)
 }
 
 // FileServer conveniently sets up a http.FileServer handler to serve
