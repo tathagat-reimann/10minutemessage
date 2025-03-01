@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -33,12 +31,8 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 
-	// Deliver index.html
-	workDir, _ := os.Getwd()
-	encodeFilesDir := http.Dir(filepath.Join(workDir, "static/encode"))
-	FileServer(r, "/encode", encodeFilesDir)
-	decodeFilesDir := http.Dir(filepath.Join(workDir, "static/encode"))
-	FileServer(r, "/decode", decodeFilesDir)
+	// Define page routes
+	registerPageRoutes(r)
 
 	// regsiter the API
 	registerApi(r)
@@ -47,11 +41,13 @@ func main() {
 	http.ListenAndServe(":8080", r)
 }
 
+func registerPageRoutes(r *chi.Mux) {
+	r.Get("/", handleMainUrl)
+	r.Get("/e", handleEncode)
+	r.Get("/d", handleDecodeText)
+}
+
 func registerApi(r *chi.Mux) {
-	// redirect base URL to /encode
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/encode", http.StatusFound)
-	})
 
 	// API
 	r.Route("/api", func(r chi.Router) {
@@ -60,14 +56,18 @@ func registerApi(r *chi.Mux) {
 			r.Get("/{code}", decode)
 		})
 	})
+}
 
-	/*
-		r.Route("/blogs", func(r chi.Router) {
-			r.Get("/", getAllBlogs)
-			r.Get("/{id}", getBlog)
-			r.Post("/", createBlog)
-		})
-	*/
+func handleMainUrl(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/e", http.StatusFound)
+}
+
+func handleEncode(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "static/encode/index.html")
+}
+
+func handleDecodeText(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "static/decode/index.html")
 }
 
 func encode(w http.ResponseWriter, r *http.Request) {
@@ -86,10 +86,9 @@ func encode(w http.ResponseWriter, r *http.Request) {
 	// susbstitute the "-" with ""
 	code = strings.Replace(code, "-", "", -1)
 	messages.Set(code, textMessage.Text, 10*time.Minute)
-	//[code] = textMessage.Text
 
 	var responseMessage string
-	responseMessage = "/decode/" + code
+	responseMessage = "/d?code=" + code
 
 	render.JSON(w, r, responseMessage)
 }
@@ -109,25 +108,4 @@ func decode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render.PlainText(w, r, text)
-}
-
-// FileServer conveniently sets up a http.FileServer handler to serve
-// static files from a http.FileSystem.
-func FileServer(r chi.Router, path string, root http.FileSystem) {
-	if strings.ContainsAny(path, "{}*") {
-		panic("FileServer does not permit any URL parameters.")
-	}
-
-	if path != "/" && path[len(path)-1] != '/' {
-		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
-		path += "/"
-	}
-	path += "*"
-
-	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
-		rctx := chi.RouteContext(r.Context())
-		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
-		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
-		fs.ServeHTTP(w, r)
-	})
 }
