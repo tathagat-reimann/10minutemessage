@@ -35,8 +35,10 @@ func main() {
 
 	// Deliver index.html
 	workDir, _ := os.Getwd()
-	filesDir := http.Dir(filepath.Join(workDir, "static"))
-	FileServer(r, "/", filesDir)
+	encodeFilesDir := http.Dir(filepath.Join(workDir, "static/encode"))
+	FileServer(r, "/encode", encodeFilesDir)
+	decodeFilesDir := http.Dir(filepath.Join(workDir, "static/encode"))
+	FileServer(r, "/decode", decodeFilesDir)
 
 	// regsiter the API
 	registerApi(r)
@@ -46,10 +48,26 @@ func main() {
 }
 
 func registerApi(r *chi.Mux) {
-	r.Post("/encode", encode)
-	r.Route("/decode", func(r chi.Router) {
-		r.Get("/{code}", decode)
+	// redirect base URL to /encode
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/encode", http.StatusFound)
 	})
+
+	// API
+	r.Route("/api", func(r chi.Router) {
+		r.Post("/encode", encode)
+		r.Route("/decode", func(r chi.Router) {
+			r.Get("/{code}", decode)
+		})
+	})
+
+	/*
+		r.Route("/blogs", func(r chi.Router) {
+			r.Get("/", getAllBlogs)
+			r.Get("/{id}", getBlog)
+			r.Post("/", createBlog)
+		})
+	*/
 }
 
 func encode(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +89,7 @@ func encode(w http.ResponseWriter, r *http.Request) {
 	//[code] = textMessage.Text
 
 	var responseMessage string
-	responseMessage = "decode/" + code
+	responseMessage = "/decode/" + code
 
 	render.JSON(w, r, responseMessage)
 }

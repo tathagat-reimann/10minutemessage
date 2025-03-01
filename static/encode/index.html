@@ -203,14 +203,14 @@
             const responseContainer = document.getElementById("responseContainer");
             const responseTextBox = document.getElementById("responseText");
 
-            fetch("/encode", {
+            fetch("/api/encode", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text: message })
             })
             .then(response => response.json())
             .then(data => {
-                const responseUrl = window.location.href + data;
+                const responseUrl = window.location.protocol + "//" + window.location.host + data;
                 responseTextBox.textContent = responseUrl;
                 responseContainer.classList.remove("d-none");
             })
