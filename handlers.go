@@ -22,6 +22,12 @@ type TextMessage struct {
 
 func encode(w http.ResponseWriter, r *http.Request) {
 	var textMessage TextMessage
+
+	if r.Body == nil {
+		http.Error(w, "No body provided", http.StatusBadRequest)
+		return
+	}
+
 	if err := render.DecodeJSON(r.Body, &textMessage); err != nil {
 		log.Printf("Error decoding JSON: %v", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
