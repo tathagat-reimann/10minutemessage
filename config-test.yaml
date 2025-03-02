@@ -1,0 +1,11 @@
+server:
+  port: 8081
+
+rate_limit:
+  requests: 5
+  duration: 5s
+
+message:
+  expiration: 5m
+  min_length: 5
+  max_length: 500
