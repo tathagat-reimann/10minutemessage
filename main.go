@@ -4,14 +4,36 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/httprate"
+	"github.com/spf13/viper"
 )
 
 func main() {
+	// Initialize viper to read the configuration file
+	// read the einvironment variable stage
+	// if not set, set it to empty string
+	stage := os.Getenv("STAGE")
+	if stage == "" {
+		stage = ""
+	} else {
+		stage = "-" + stage
+	}
+
+	viper.SetConfigName("config" + stage)
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error reading config file: %v", err)
+	}
+
+	// Get configuration values
+	port := viper.GetString("server.port")
+	requests := viper.GetInt("rate_limit.requests")
+	duration := viper.GetDuration("rate_limit.duration")
+
 	r := chi.NewRouter()
 
 	// Apply middleware
@@ -19,8 +41,8 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 	r.Use(httprate.Limit(
-		10,             // requests
-		10*time.Second, // per duration
+		requests, // requests
+		duration, // per duration
 		httprate.WithKeyFuncs(httprate.KeyByIP, httprate.KeyByEndpoint),
 	))
 
@@ -29,12 +51,6 @@ func main() {
 
 	// Register the API
 	registerApi(r)
-
-	// Get port from environment variable (default to 8080)
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
 
 	log.Printf("Server running on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, r))

@@ -1,0 +1,5 @@
+server:
+  port: 8080
+rate_limit:
+  requests: 10
+  duration: 10s
