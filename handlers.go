@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/10minutemessage/cache"
 	"github.com/go-chi/chi"
@@ -15,9 +14,23 @@ import (
 
 var messages = cache.Cache{}
 var validate = validator.New()
+var config Config
 
 type TextMessage struct {
 	Text string `json:"text" validate:"required,min=1,max=1000"`
+}
+
+func init() {
+	// Load configuration
+	config = LoadConfig()
+
+	// Update validation rules based on config values
+	validate.RegisterValidation("min", func(fl validator.FieldLevel) bool {
+		return len(fl.Field().String()) >= config.Message.MinLength
+	})
+	validate.RegisterValidation("max", func(fl validator.FieldLevel) bool {
+		return len(fl.Field().String()) <= config.Message.MaxLength
+	})
 }
 
 func encode(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +59,7 @@ func encode(w http.ResponseWriter, r *http.Request) {
 
 	code := uuid.NewString()
 	code = strings.Replace(code, "-", "", -1)
-	messages.Set(code, textMessage.Text, 10*time.Minute)
+	messages.Set(code, textMessage.Text, config.Message.Expiration)
 
 	response := map[string]string{
 		"message": "Message encoded successfully",

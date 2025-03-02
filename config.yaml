@@ -1,5 +1,11 @@
 server:
   port: 8080
+
 rate_limit:
   requests: 10
   duration: 10s
+
+message:
+  expiration: 10m
+  min_length: 1
+  max_length: 1000
