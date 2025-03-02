@@ -52,7 +52,7 @@
                     <p class="text-muted">This is your decoded message.</p>
 
                      <!-- Decoded message container -->
-                    <div class="d-flex align-items-center border p-3 bg-light text-dark rounded">
+                    <div class="d-flex align-items-center border p-3 bg-light text-dark rounded" id="decodedMessageContainer">
                         <span id="decodedMessage" class="flex-grow-1">Fetching message...</span>
                         <button id="copyButton" class="btn btn-sm btn-outline-secondary ms-2">
                             <i class="bi bi-clipboard"></i> <!-- Bootstrap Icons -->
@@ -195,17 +195,22 @@
             if (code) {
                 // Construct the API URL (replace 'YOUR_API_ENDPOINT' with the actual API URL)
                 const apiUrl = `/api/decode/${encodeURIComponent(code)}`;
+                const decodedMessageSpan= document.getElementById("decodedMessage")
         
                 // Fetch the decoded message from the API
                 fetch(apiUrl)
-                    .then(response => response.text())  // Assuming the response is plain text
-                    .then(decodedMessage => {
+                    .then(response => response.json())
+                    .then(data => {
                         // Update the div with the decoded message
-                        document.getElementById("decodedMessage").innerText = decodedMessage;
+                        decodedMessageSpan.innerText = data.text;
                     })
                     .catch(error => {
-                        console.error("Error fetching decoded message:", error);
-                        document.getElementById("decodedMessage").innerText = "Error retrieving message.";
+                        decodedMessageSpan.innerText = "Error retrieving message.";
+                        const responseContainer = document.getElementById("decodedMessageContainer");
+                        responseContainer.classList.add("border-danger");
+                        decodedMessageSpan.classList.add("text-danger");
+                        document.getElementById("copyButton").classList.add("d-none");
+                        showToast("Failed to fetch message", "errorToast");
                     });
             } else {
                 document.getElementById("decodedMessage").innerText = "No code provided in URL.";

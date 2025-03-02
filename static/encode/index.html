@@ -195,12 +195,14 @@
 
             const message = document.getElementById("message").value.trim();
 
+            const responseContainer = document.getElementById("responseContainer");
+            
             if (message === "") {
                 showToast("Please enter a message before submitting!", "errorToast");
+                responseContainer.classList.add("d-none");
                 return;
             }
 
-            const responseContainer = document.getElementById("responseContainer");
             const responseTextBox = document.getElementById("responseText");
 
             fetch("/api/encode", {
@@ -210,7 +212,7 @@
             })
             .then(response => response.json())
             .then(data => {
-                const responseUrl = window.location.protocol + "//" + window.location.host + data;
+                const responseUrl = window.location.protocol + "//" + window.location.host + data.url;
                 responseTextBox.textContent = responseUrl;
                 responseContainer.classList.remove("d-none");
             })

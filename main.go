@@ -1,18 +1,17 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/10minutemessage/cache"
-
-	"github.com/google/uuid"
-
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/render"
+	"github.com/google/uuid"
 )
 
 var messages = cache.Cache{}
@@ -22,7 +21,7 @@ type TextMessage struct {
 }
 
 func main() {
-	fmt.Println("Starting 10minutemessage!")
+	log.Println("Starting 10MinuteMessage!")
 
 	r := chi.NewRouter()
 
@@ -34,22 +33,32 @@ func main() {
 	// Define page routes
 	registerPageRoutes(r)
 
-	// regsiter the API
+	// Register the API
 	registerApi(r)
 
-	// Start the server
-	http.ListenAndServe(":8080", r)
+	// Get port from environment variable (default to 8080)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Printf("Server running on port %s", port)
+	log.Fatal(http.ListenAndServe(":"+port, r))
 }
 
 func registerPageRoutes(r *chi.Mux) {
-	r.Get("/", handleMainUrl)
-	r.Get("/e", handleEncode)
-	r.Get("/d", handleDecodeText)
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/e", http.StatusFound)
+	})
+	r.Get("/e", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/encode/index.html")
+	})
+	r.Get("/d", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "static/decode/index.html")
+	})
 }
 
 func registerApi(r *chi.Mux) {
-
-	// API
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/encode", encode)
 		r.Route("/decode", func(r chi.Router) {
@@ -58,23 +67,11 @@ func registerApi(r *chi.Mux) {
 	})
 }
 
-func handleMainUrl(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/e", http.StatusFound)
-}
-
-func handleEncode(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "static/encode/index.html")
-}
-
-func handleDecodeText(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "static/decode/index.html")
-}
-
 func encode(w http.ResponseWriter, r *http.Request) {
 	var textMessage TextMessage
 	if err := render.DecodeJSON(r.Body, &textMessage); err != nil {
-		fmt.Println(err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("Error decoding JSON: %v", err)
+		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
@@ -82,15 +79,18 @@ func encode(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Message is required", http.StatusBadRequest)
 		return
 	}
-	code := uuid.New().String()
+
+	code := uuid.NewString()
 	// susbstitute the "-" with ""
 	code = strings.Replace(code, "-", "", -1)
 	messages.Set(code, textMessage.Text, 10*time.Minute)
 
-	var responseMessage string
-	responseMessage = "/d?code=" + code
+	response := map[string]string{
+		"message": "Message encoded successfully",
+		"url":     "/d?code=" + code,
+	}
 
-	render.JSON(w, r, responseMessage)
+	render.JSON(w, r, response)
 }
 
 func decode(w http.ResponseWriter, r *http.Request) {
@@ -101,11 +101,16 @@ func decode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text, ok := messages.Get(code)
+	response := map[string]string{
+		"text": "",
+	}
 
+	text, ok := messages.Get(code)
 	if !ok {
 		http.Error(w, "Code not found", http.StatusNotFound)
 		return
 	}
-	render.PlainText(w, r, text)
+
+	response["text"] = text
+	render.JSON(w, r, response)
 }
